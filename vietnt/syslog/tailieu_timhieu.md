@@ -161,11 +161,56 @@ Ví dụ kết quả:
 
 ---
 
-## 7. Tóm tắt
+# 7. Quy định thứ tự nạp (load order) các file cấu hình.
 
-- **Syslog**: chuẩn ghi & truyền log.
-- **Rsyslog**: daemon mạnh mẽ, linh hoạt, hỗ trợ gửi log tập trung qua mạng.
-- Kết hợp **PRI = Facility × 8 + Severity** để phân loại log.
-- Triển khai mô hình **client → server** giúp tập trung, giám sát và phân tích log hiệu quả.
+| Prefix | Mục đích                |
+| ------ | ----------------------- |
+| 00-09  | Biến môi trường, global |
+| 10-29  | Input/Listener          |
+| 30-49  | Template                |
+| 50-69  | Rule mặc định           |
+| 70-89  | Filter                  |
+| 90-99  | Custom, Forwarding      |
 
-> **TIP:** Trong môi trường thực tế, nên dùng **TCP/TLS (port 6514)** thay vì UDP để đảm bảo log không bị mất và được mã hóa khi truyền qua mạng.
+# 7. Cú pháp RainerScript hiện đại của rsyslog
+## Ví dụ SSH + sudo
+auth,authpriv.* action(
+  type="omfwd"
+  target="192.168.122.50"
+  port="514"
+  protocol="tcp"
+
+  queue.type="linkedlist"
+  queue.filename="auth_queue"
+
+  queue.maxdiskspace="500m"
+  queue.saveonshutdown="on"
+
+  action.resumeRetryCount="-1"
+)
+
+### Khi Syslog Server chết -> log được ghi tạm xuống: /var/spool/rsyslog/
+
+### Server log lên lại: rsyslog tự gửi bù -> Không mất log.
+
+### Ý nghĩa:
+
+**Selector**
+- `auth,authpriv.*` — chọn mọi log của facility `auth` và `authpriv` (SSH, sudo, su, PAM) ở mọi severity (`*`). Log khớp sẽ chạy `action(...)`.
+
+**Nhóm 1 — Output Module (gửi đi đâu)**
+- `type="omfwd"` — output module **forward**: đẩy log ra máy chủ từ xa qua mạng (khác `omfile` ghi file, `ommysql` ghi DB...).
+- `target="192.168.122.50"` — IP của rsyslog server tập trung.
+- `port="514"` — port đích chuẩn của syslog.
+- `protocol="tcp"` — dùng TCP thay vì UDP → đảm bảo không rớt gói log.
+
+**Nhóm 2 — Queue (chống mất log khi server chết)**
+- `queue.type="linkedlist"` — hàng đợi kiểu linked list trong RAM (cấp phát động, tiết kiệm bộ nhớ hơn `fixedArray`).
+- `queue.filename="auth_queue"` — tên prefix file queue trên đĩa. Khi RAM đầy hoặc shutdown, rsyslog ghi tạm ra `/var/spool/rsyslog/auth_queue*` (disk-assisted queue).
+- `queue.maxdiskspace="500m"` — giới hạn 500MB cho queue trên đĩa, tránh ngốn hết ổ cứng.
+- `queue.saveonshutdown="on"` — khi rsyslog tắt, flush toàn bộ queue RAM xuống đĩa; bật lại đọc lên gửi tiếp → không mất log.
+
+**Nhóm 3 — Retry (chống mất log khi mạng/server lỗi)**
+- `action.resumeRetryCount="-1"` — số lần retry khi gửi thất bại; `-1` = thử lại vô hạn. Kết hợp queue → mạng/server chết bao lâu cũng gửi bù được.
+
+**So với cú pháp cũ** (`auth,authpriv.* @@192.168.122.50:514`): RainerScript mạnh hơn vì cấu hình được queue + retry + buffering, tránh mất log khi có sự cố — điều mà cú pháp một dòng không làm được.
