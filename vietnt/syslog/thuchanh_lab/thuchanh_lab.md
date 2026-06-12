@@ -67,6 +67,7 @@ local3.*               @@192.168.122.50:514
 ## 4.1. Cấu hình SERVER (192.168.122.50)
 ### Tạo config nhận + parse JSON
 File `/etc/rsyslog.d/30-server-receive-json.conf`:
+
 ![alt text](image-2.png)
 
 ### Mở firewall + restart
@@ -82,6 +83,7 @@ sudo ss -ltnp | grep 514     # LISTEN 0.0.0.0:514
 ## 4.2. Cấu hình CLIENT (192.168.122.52)
 ### Tạo config forward JSON
 File `/etc/rsyslog.d/90-client-forward-json.conf`:
+
 ![alt text](image-1.png)
 
 ### Validate + restart
