@@ -6,56 +6,57 @@
 
 # 2. Gửi log test từ client
 ## Client
+```bash
 vietnt@client-01:~$ logger "Hello from client"
 vietnt@client-01:~$ logger -t nginx "Access test"
+```
 
 ## Server
+```bash
 vietnt@server:~$ grep -R "Hello from client" /var/log/remote
 /var/log/remote/client-01/vietnt.log:2026-06-12T05:03:19+00:00 client-01 vietnt: Hello from client
 vietnt@server:~$ cat /var/log/remote/client-01/nginx.log
 2026-06-12T06:05:09+00:00 client-01 nginx: Access test
+```
 
 # 3. Ví dụ cấu hình một số loại log
-# ==========================
-# SECURITY LOGS
-# ==========================
-# SSH, sudo, su, PAM
-auth,authpriv.* @@192.168.122.50:514
 
-# ==========================
-# SYSTEM ERRORS
-# ==========================
-# Kernel warning/error
-kern.warning @@192.168.122.50:514
+Forward log tới syslog server `192.168.122.50` qua TCP (`@@`).
 
-# Tất cả lỗi từ mọi facility
-*.err @@192.168.122.50:514
+| Nhóm log | Selector | Mô tả |
+|---|---|---|
+| **Security** | `auth,authpriv.*` | SSH, sudo, su, PAM |
+| **System errors** | `kern.warning` | Kernel warning/error |
+|  | `*.err` | Tất cả lỗi từ mọi facility |
+| **Important events** | `daemon.warning` | Dịch vụ hệ thống |
+|  | `mail.warning` | Mail server (nếu có) |
+|  | `cron.warning` | Cron lỗi/cảnh báo |
+| **Custom apps** | `local0.* … local3.*` | Facility dành cho ứng dụng tự phát triển |
 
-# ==========================
-# IMPORTANT EVENTS
-# ==========================
-# Dịch vụ hệ thống
-daemon.warning @@192.168.122.50:514
+File `/etc/rsyslog.d/50-forward.conf`:
 
-# Mail server (nếu có)
-mail.warning @@192.168.122.50:514
+```rsyslog
+# Security
+auth,authpriv.*        @@192.168.122.50:514
 
-# Cron lỗi/cảnh báo
-cron.warning @@192.168.122.50:514
+# System errors
+kern.warning           @@192.168.122.50:514
+*.err                  @@192.168.122.50:514
 
-# ==========================
-# CUSTOM APPLICATIONS
-# ==========================
-# local0-local7 dành cho ứng dụng tự phát triển
-local0.* @@192.168.122.50:514
-local1.* @@192.168.122.50:514
-local2.* @@192.168.122.50:514
-local3.* @@192.168.122.50:514
+# Important events
+daemon.warning         @@192.168.122.50:514
+mail.warning           @@192.168.122.50:514
+cron.warning           @@192.168.122.50:514
 
-# ==========================
-# PREVENT DUPLICATE PROCESSING
-# ==========================
+# Custom applications (local0-local3)
+local0.*               @@192.168.122.50:514
+local1.*               @@192.168.122.50:514
+local2.*               @@192.168.122.50:514
+local3.*               @@192.168.122.50:514
+
+# Chặn xử lý trùng lặp
 & stop
+```
 
 # 4. Thử setup parse log json
 
@@ -94,9 +95,12 @@ sudo systemctl restart rsyslog
 ## 4.3. Test gửi log
 
 ### Trên CLIENT
+```bash
 vietnt@client-01:~$ logger -t nginx "GET /api/users 200 OK"
+```
 
 ### Trên SERVER — verify
+```bash
 vietnt@server:~$ sudo cat /var/log/remote/client-01/nginx.json | jq .
 {
   "@timestamp": "2026-06-12T07:11:49.289550+00:00",
@@ -107,5 +111,6 @@ vietnt@server:~$ sudo cat /var/log/remote/client-01/nginx.json | jq .
   "pid": "-",
   "msg": " GET /api/users 200 OK"
 }
+```
 
 ![alt text](image.png)
