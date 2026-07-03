@@ -158,6 +158,8 @@ Ví dụ kết quả:
 | `systemctl restart rsyslog`    | Khởi động lại dịch vụ |
 | `tail -f /var/log/syslog`      | Xem log realtime |
 | `journalctl -u rsyslog`        | Xem log của dịch vụ rsyslog |
+| `grep "pattern" /var/log/syslog`   | Tìm dòng log chứa chuỗi khớp (so khớp chuỗi cố định / regex cơ bản) |
+| `egrep "err\|fail\|warn" /var/log/syslog` | Tìm log với regex mở rộng (ERE), hỗ trợ `|`, `+`, `?`, `()` không cần escape |
 
 ---
 

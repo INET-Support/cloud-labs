@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cơ chế SSH Login vào Linux</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --bg-alt: #ffffff;
+    --bg-code: #f4f1ea;
+    --text: #1a1a1a;
+    --text-muted: #5c5c5c;
+    --accent: #c9502c;
+    --accent-soft: #e8b39c;
+    --border: #d8d2c4;
+    --shadow: 0 1px 3px rgba(0,0,0,0.05);
+    --card-1: #fff9e6;
+    --card-2: #e6f4ea;
+    --card-3: #e8f0fe;
+    --card-4: #fce8e6;
+    --card-5: #f3e5f5;
+    --card-6: #e0f2f1;
+    --card-7: #fff3e0;
+    --card-8: #e8eaf6;
+  }
+  [data-theme="dark"] {
+    --bg: #1a1815;
+    --bg-alt: #24211d;
+    --bg-code: #2e2a25;
+    --text: #ebe6dc;
+    --text-muted: #a39d92;
+    --accent: #ff8a65;
+    --accent-soft: #6d4a3a;
+    --border: #3a352e;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --card-1: #3d3826;
+    --card-2: #263d2c;
+    --card-3: #263042;
+    --card-4: #3d2926;
+    --card-5: #3a2a3d;
+    --card-6: #263d3a;
+    --card-7: #3d3226;
+    --card-8: #2a2c3d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 17px;
+    transition: background 0.3s, color 0.3s;
+  }
+  .container { max-width: 920px; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  header { text-align: center; margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 2px solid var(--border); }
+  h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+  }
+  .subtitle { color: var(--text-muted); font-style: italic; font-size: 1.1rem; }
+  h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.8rem;
+    margin: 3rem 0 1.2rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+  }
+  h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.3rem;
+    margin: 2rem 0 0.8rem;
+    color: var(--text);
+  }
+  h4 { font-size: 1.05rem; margin: 1.2rem 0 0.5rem; color: var(--accent); }
+  p { margin-bottom: 1rem; }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--bg-code);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: var(--accent);
+  }
+  pre {
+    background: var(--bg-code);
+    padding: 1rem 1.2rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1rem 0;
+    border-left: 3px solid var(--accent);
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; color: var(--text); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    background: var(--bg-alt);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    font-size: 0.95rem;
+  }
+  th, td { padding: 0.7rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--accent); color: white; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-code); }
+
+  .step-cards {
+    display: grid;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .step-card {
+    background: var(--bg-alt);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    border-left: 4px solid var(--accent);
+    box-shadow: var(--shadow);
+    transition: transform 0.2s;
+  }
+  .step-card:hover { transform: translateX(4px); }
+  .step-card:nth-child(1) { border-left-color: #f9a825; background: var(--card-1); }
+  .step-card:nth-child(2) { border-left-color: #43a047; background: var(--card-2); }
+  .step-card:nth-child(3) { border-left-color: #1e88e5; background: var(--card-3); }
+  .step-card:nth-child(4) { border-left-color: #e53935; background: var(--card-4); }
+  .step-card:nth-child(5) { border-left-color: #8e24aa; background: var(--card-5); }
+  .step-card:nth-child(6) { border-left-color: #00897b; background: var(--card-6); }
+  .step-card:nth-child(7) { border-left-color: #fb8c00; background: var(--card-7); }
+  .step-card:nth-child(8) { border-left-color: #3949ab; background: var(--card-8); }
+  .step-num {
+    display: inline-block;
+    font-weight: 700;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-right: 0.5rem;
+  }
+  .step-card h3 { margin: 0 0 0.6rem; font-size: 1.15rem; }
+  .step-card p { margin-bottom: 0.5rem; font-size: 0.98rem; }
+  .step-card ul { margin: 0.5rem 0 0 1.2rem; }
+
+  .mermaid-wrap {
+    background: var(--bg-alt);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+    text-align: center;
+  }
+  .mermaid { display: inline-block; min-width: 100%; }
+
+  .term-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .term {
+    background: var(--bg-alt);
+    padding: 1rem 1.2rem;
+    border-radius: 8px;
+    border-top: 3px solid var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .term h4 { margin: 0 0 0.4rem; color: var(--accent); font-size: 0.95rem; }
+  .term p { font-size: 0.92rem; margin: 0; color: var(--text); line-height: 1.6; }
+
+  .theme-toggle {
+    position: fixed;
+    top: 1.2rem;
+    right: 1.2rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: all 0.3s;
+  }
+  .theme-toggle:hover { transform: rotate(180deg) scale(1.1); }
+
+  .toc {
+    background: var(--bg-alt);
+    padding: 1.2rem 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+  }
+  .toc h3 { margin: 0 0 0.6rem; color: var(--accent); font-size: 1rem; }
+  .toc ol { margin-left: 1.2rem; }
+  .toc a { color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  .callout {
+    background: var(--card-1);
+    border-left: 4px solid #f9a825;
+    padding: 1rem 1.2rem;
+    border-radius: 6px;
+    margin: 1.2rem 0;
+    font-size: 0.95rem;
+  }
+  .callout strong { color: var(--accent); }
+
+  @media (max-width: 600px) {
+    body { font-size: 15px; }
+    h1 { font-size: 1.8rem; }
+    h2 { font-size: 1.4rem; }
+    .container { padding: 2rem 1rem 4rem; }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+  <span id="theme-icon">🌙</span>
+</button>
+
+<div class="container">
+
+  <header>
+    <h1>Cơ chế SSH Login vào Linux</h1>
+    <p class="subtitle">Điều gì xảy ra từ lúc gõ <code>ssh user@server</code> đến khi thấy prompt</p>
+  </header>
+
+  <div class="toc">
+    <h3>📚 Mục lục</h3>
+    <ol>
+      <li><a href="#overview">Tổng quan &amp; Diagram</a></li>
+      <li><a href="#story">Kể chuyện: 8 bước SSH login</a></li>
+      <li><a href="#files">Bảng file thực thi theo giai đoạn</a></li>
+      <li><a href="#terms">Giải thích thuật ngữ</a></li>
+      <li><a href="#debug">Debug &amp; Troubleshoot</a></li>
+    </ol>
+  </div>
+
+  <section id="overview">
+    <h2>1. Luồng tổng quan</h2>
+    <pre><code>sshd  →  PAM stack  →  SSH hooks  →  Shell startup files</code></pre>
+
+    <h3>🔄 Toàn bộ luồng SSH login</h3>
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+flowchart TD
+    A[Client: ssh alice@server] -->|TCP port 22| B[sshd daemon lắng nghe]
+    B --> C[/etc/ssh/sshd_config<br/>Đọc cấu hình]
+    C --> D{Có Banner?}
+    D -->|Có| E[/etc/issue.net<br/>Hiện banner cảnh báo]
+    D -->|Không| F[PAM: /etc/pam.d/sshd]
+    E --> F
+
+    F --> G[auth<br/>pam_unix + pam_env]
+    G --> G1[(/etc/passwd<br/>/etc/shadow)]
+    G --> G2[(/etc/environment)]
+    G --> H{Auth OK?}
+    H -->|Fail| X[Đóng kết nối]
+    H -->|OK| I[account<br/>pam_nologin]
+
+    I --> I1[(/etc/nologin?)]
+    I --> J{Account OK?}
+    J -->|Fail| X
+    J -->|OK| K[session<br/>pam_limits + pam_lastlog + pam_motd]
+
+    K --> K1[(/etc/security/limits.conf)]
+    K --> K2[(/var/log/lastlog)]
+    K --> K3[(/etc/motd)]
+
+    K --> L{Có ~/.ssh/rc?}
+    L -->|Có| L1[Chạy ~/.ssh/rc]
+    L -->|Không| L2[/etc/ssh/sshrc nếu có]
+    L1 --> M[Fork login shell]
+    L2 --> M
+
+    M --> N[/etc/profile]
+    N --> N1[/etc/profile.d/*.sh]
+    N1 --> O[~/.bash_profile]
+    O --> P[~/.bashrc]
+    P --> Q([Prompt sẵn sàng])
+
+    style A fill:#e1f5ff,color:#000
+    style Q fill:#c8e6c9,color:#000
+    style X fill:#ffcdd2,color:#000
+    style F fill:#fff9c4,color:#000
+    style M fill:#f8bbd0,color:#000
+      </div>
+    </div>
+
+    <h3>🧩 PAM stack chi tiết</h3>
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+flowchart LR
+    SSHD[sshd] --> PAM[/etc/pam.d/sshd]
+
+    PAM --> AUTH[auth]
+    PAM --> ACCT[account]
+    PAM --> SESS[session]
+    PAM --> PWD[password]
+
+    AUTH --> A1[pam_unix.so<br/>check password]
+    AUTH --> A2[pam_env.so<br/>load env vars]
+    AUTH --> A3[pam_google_authenticator<br/>2FA]
+
+    ACCT --> B1[pam_nologin.so]
+    ACCT --> B2[pam_access.so<br/>IP/time rules]
+
+    SESS --> C1[pam_limits.so<br/>apply ulimit]
+    SESS --> C2[pam_lastlog.so<br/>Last login]
+    SESS --> C3[pam_motd.so<br/>MOTD]
+
+    PWD --> D1[pam_pwquality.so<br/>khi đổi password]
+
+    style PAM fill:#fff9c4,color:#000
+    style AUTH fill:#ffe0b2,color:#000
+    style ACCT fill:#e1bee7,color:#000
+    style SESS fill:#c5e1a5,color:#000
+    style PWD fill:#b3e5fc,color:#000
+      </div>
+    </div>
+
+    <h3>⚔️ Interactive vs Non-interactive</h3>
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+flowchart TD
+    START[ssh command] --> CHECK{Có command<br/>đi kèm?}
+    CHECK -->|Không| INT[Interactive Login Shell]
+    CHECK -->|Có: 'ls'| NON[Non-interactive Shell]
+
+    INT --> I1[/etc/profile]
+    I1 --> I2[/etc/profile.d/*.sh]
+    I2 --> I3[~/.bash_profile]
+    I3 --> I4[~/.bashrc]
+    I4 --> I5([Prompt hiện])
+
+    NON --> N1[Chỉ đọc ~/.bashrc]
+    N1 --> N2{PS1 check?}
+    N2 -->|Có| N3[Thoát sớm]
+    N2 -->|Không| N4[Load .bashrc]
+    N3 --> N5[Chạy command]
+    N4 --> N5
+    N5 --> N6([Thoát])
+
+    style INT fill:#c8e6c9,color:#000
+    style NON fill:#ffe0b2,color:#000
+    style I5 fill:#81c784,color:#000
+    style N6 fill:#ffb74d,color:#000
+      </div>
+    </div>
+  </section>
+
+  <section id="story">
+    <h2>2. Câu chuyện 8 bước: Khi bạn gõ <code>ssh user@server</code></h2>
+    <div class="step-cards">
+
+      <div class="step-card">
+        <h3><span class="step-num">01</span>Bắt tay kết nối</h3>
+        <p>Client gửi yêu cầu tới cổng <strong>22</strong>. Trên server, tiến trình <code>sshd</code> (SSH Daemon) đang lắng nghe 24/7 nhận cuộc gọi và mở <code>/etc/ssh/sshd_config</code> để biết được cấu hình: có cho phép root login? Dùng key hay password? Bật PAM?</p>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-num">02</span>Hiện banner cảnh báo</h3>
+        <p>Nếu <code>sshd_config</code> có dòng <code>Banner /etc/issue.net</code>, server in file <code>/etc/issue.net</code> <strong>trước khi</strong> bạn nhập gì cả. Thường là cảnh báo pháp lý.</p>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-num">03</span>Xác thực (Authentication)</h3>
+        <p>Server hỏi "bạn là ai?". <code>sshd</code> giao việc cho <strong>PAM</strong> qua <code>/etc/pam.d/sshd</code>:</p>
+        <ul>
+          <li><code>pam_unix.so</code> đọc <code>/etc/passwd</code> + <code>/etc/shadow</code> để check password. Nếu dùng SSH key thì <code>sshd</code> đối chiếu <code>~/.ssh/authorized_keys</code>.</li>
+          <li><code>pam_env.so</code> đọc <code>/etc/environment</code> nạp biến môi trường (LANG, PATH cơ bản).</li>
+        </ul>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-num">04</span>Kiểm tra tài khoản (Account)</h3>
+        <p>PAM hỏi tiếp: "tài khoản này có được phép login lúc này không?":</p>
+        <ul>
+          <li><code>pam_nologin.so</code> check <code>/etc/nologin</code> — nếu tồn tại (admin tạo lúc bảo trì), user thường bị chặn, chỉ root vào được.</li>
+          <li>Module khác: check account hết hạn, giờ được login, IP có bị block.</li>
+        </ul>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-num">05</span>Chuẩn bị session</h3>
+        <p>Chuẩn bị "không gian làm việc":</p>
+        <ul>
+          <li><code>pam_limits.so</code> đọc <code>/etc/security/limits.conf</code> áp giới hạn tài nguyên (số file mở, process, RAM).</li>
+          <li><code>pam_lastlog.so</code> in "Last login: ..." và ghi vào <code>/var/log/lastlog</code>.</li>
+          <li><code>pam_motd.so</code> in MOTD từ <code>/etc/motd</code> + script trong <code>/etc/update-motd.d/</code>.</li>
+        </ul>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-num">06</span>SSH hook (tùy chọn)</h3>
+        <p>Trước khi shell khởi động, <code>sshd</code> kiểm tra:</p>
+        <ul>
+          <li><code>~/.ssh/rc</code> — script riêng user (ưu tiên).</li>
+          <li><code>/etc/ssh/sshrc</code> — system-wide (nếu user không có <code>~/.ssh/rc</code>).</li>
+        </ul>
+        <p>Ít dùng nhưng hữu ích để log, gửi Slack, setup đặc biệt trước shell.</p>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-num">07</span>Khởi động Shell (login shell)</h3>
+        <p><code>sshd</code> fork một tiến trình bash làm <strong>login shell</strong> — báo hiệu bằng dấu <code>-</code>: <code>-bash</code>. Thứ tự đọc:</p>
+        <ul>
+          <li><code>/etc/profile</code> — system-wide, cho <strong>mọi user</strong>. Set PATH, PS1, umask.</li>
+          <li><code>/etc/profile.d/*.sh</code> — package cài thêm bỏ script vào đây (bash_completion, nvm...).</li>
+          <li><code>~/.bash_profile</code> (hoặc <code>~/.bash_login</code>, <code>~/.profile</code>) — cá nhân user.</li>
+          <li><code>~/.bashrc</code> — <strong>KHÔNG</strong> tự chạy, nhưng thường được <code>.bash_profile</code> source. Chỗ đặt alias, function, prompt.</li>
+        </ul>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-num">08</span>Sẵn sàng</h3>
+        <p>Bạn thấy prompt <code>alice@server:~$</code> — hệ thống sẵn sàng nhận lệnh. Cả quá trình diễn ra trong vài trăm milliseconds.</p>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <strong>💡 Khi logout:</strong> <code>exit</code>/Ctrl+D → <code>~/.bash_logout</code> → <code>/etc/bash.bash_logout</code> → PAM session close → <code>sshd</code> đóng kết nối.
+    </div>
+
+    <div class="callout">
+      <strong>⚠️ Trường hợp đặc biệt <code>ssh user@server "ls"</code>:</strong> Vẫn qua PAM đầy đủ, nhưng <strong>KHÔNG</strong> chạy <code>/etc/profile</code>, <code>~/.bash_profile</code>. Chỉ đọc <code>~/.bashrc</code> (thường thoát sớm nếu có <code>[ -z "$PS1" ] && return</code>). Đây là lý do biến môi trường "biến mất" khi chạy remote command.
+    </div>
+  </section>
+
+  <section id="files">
+    <h2>3. Bảng file thực thi theo giai đoạn</h2>
+
+    <h3>SSHD + PAM</h3>
+    <table>
+      <thead><tr><th>File</th><th>Vai trò</th></tr></thead>
+      <tbody>
+        <tr><td><code>/etc/ssh/sshd_config</code></td><td>Cấu hình sshd</td></tr>
+        <tr><td><code>/etc/pam.d/sshd</code></td><td>PAM stack cho SSH</td></tr>
+        <tr><td><code>/etc/pam.d/common-*</code> / <code>system-auth</code></td><td>Module PAM dùng chung</td></tr>
+        <tr><td><code>/etc/environment</code></td><td><code>pam_env.so</code> đọc → set biến môi trường</td></tr>
+        <tr><td><code>/etc/security/limits.conf</code></td><td><code>pam_limits.so</code> áp ulimit</td></tr>
+        <tr><td><code>/etc/nologin</code></td><td>Nếu tồn tại → chặn login (trừ root)</td></tr>
+        <tr><td><code>/etc/issue.net</code></td><td>Banner trước khi auth</td></tr>
+        <tr><td><code>/etc/motd</code>, <code>/etc/update-motd.d/*</code></td><td>Banner sau login</td></tr>
+        <tr><td><code>/var/log/auth.log</code> / <code>secure</code></td><td>Log sshd + PAM</td></tr>
+      </tbody>
+    </table>
+
+    <h3>SSH Hooks</h3>
+    <table>
+      <thead><tr><th>File</th><th>Vai trò</th></tr></thead>
+      <tbody>
+        <tr><td><code>/etc/ssh/sshrc</code></td><td>Script system-wide, chạy trước shell</td></tr>
+        <tr><td><code>~/.ssh/rc</code></td><td>Script per-user (nếu có, sshrc bị bỏ qua)</td></tr>
+        <tr><td><code>~/.ssh/authorized_keys</code></td><td>Public key + option <code>command=</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Shell startup — Bash</h3>
+    <pre><code>Interactive login shell:
+  1. /etc/profile
+  2. /etc/profile.d/*.sh
+  3. ~/.bash_profile → ~/.bash_login → ~/.profile
+  4. ~/.bashrc (nếu được source)
+  5. Logout: ~/.bash_logout
+
+Non-interactive (ssh user@host command):
+  - Chỉ đọc ~/.bashrc
+  - KHÔNG chạy /etc/profile, ~/.bash_profile</code></pre>
+
+    <h3>Shell startup — Zsh</h3>
+    <pre><code>/etc/zshenv   → ~/.zshenv
+/etc/zprofile → ~/.zprofile
+/etc/zshrc    → ~/.zshrc
+/etc/zlogin   → ~/.zlogin
+Logout: ~/.zlogout → /etc/zlogout</code></pre>
+  </section>
+
+  <section id="terms">
+    <h2>4. Giải thích các thuật ngữ</h2>
+
+    <div class="term-grid">
+      <div class="term">
+        <h4>PAM (Pluggable Authentication Modules)</h4>
+        <p>Hệ thống xác thực module hóa của Linux. Thay vì mỗi app tự viết code xác thực, chúng gọi PAM. PAM đọc config (vd <code>/etc/pam.d/sshd</code>) rồi lần lượt gọi module <code>.so</code>.</p>
+      </div>
+
+      <div class="term">
+        <h4>SSHD (SSH Daemon)</h4>
+        <p>Tiến trình nền lắng nghe cổng 22, nhận kết nối SSH. Không tự xác thực — ủy quyền cho PAM (nếu <code>UsePAM yes</code>) hoặc dùng public key nội tại.</p>
+      </div>
+
+      <div class="term">
+        <h4>4 nhóm PAM</h4>
+        <p><strong>auth</strong>: xác thực user. <strong>account</strong>: check tài khoản hợp lệ. <strong>session</strong>: chuẩn bị/dọn dẹp session. <strong>password</strong>: đổi mật khẩu.</p>
+      </div>
+
+      <div class="term">
+        <h4>Login vs Non-login shell</h4>
+        <p><strong>Login</strong>: shell đầu tiên khi user "đăng nhập" (SSH, tty). Đọc <code>/etc/profile</code>. Nhận diện bằng dấu <code>-</code> đầu argv[0]. <strong>Non-login</strong>: mở terminal mới sau login, chỉ đọc <code>~/.bashrc</code>.</p>
+      </div>
+
+      <div class="term">
+        <h4>Interactive vs Non-interactive</h4>
+        <p><strong>Interactive</strong>: có prompt, chờ user gõ. <strong>Non-interactive</strong>: chạy script/lệnh rồi thoát. SSH login = interactive login shell.</p>
+      </div>
+
+      <div class="term">
+        <h4>MOTD (Message Of The Day)</h4>
+        <p>Banner in khi login thành công. Lấy từ <code>/etc/motd</code> (tĩnh) + <code>/run/motd.dynamic</code> (động, sinh từ <code>/etc/update-motd.d/</code>).</p>
+      </div>
+
+      <div class="term">
+        <h4>Banner (issue.net)</h4>
+        <p>Chuỗi hiện <strong>trước khi</strong> nhập password. Dùng cảnh báo pháp lý. Cấu hình bằng <code>Banner /etc/issue.net</code> trong sshd_config.</p>
+      </div>
+
+      <div class="term">
+        <h4>ForceCommand</h4>
+        <p>Option trong <code>sshd_config</code> hoặc <code>authorized_keys</code>. Ép user chạy 1 command duy nhất thay vì shell tự do — dùng cho tài khoản backup, git-only, rsync-only.</p>
+      </div>
+
+      <div class="term">
+        <h4>ulimit / limits.conf</h4>
+        <p>Giới hạn tài nguyên per-process: số file mở, số process, RAM, kích thước file. <code>pam_limits.so</code> đọc <code>/etc/security/limits.conf</code> và áp khi login.</p>
+      </div>
+
+      <div class="term">
+        <h4>/etc/environment vs /etc/profile</h4>
+        <p><code>/etc/environment</code>: file <strong>KEY=VALUE</strong>, PAM đọc, không có logic. <code>/etc/profile</code>: <strong>script bash</strong>, chỉ chạy cho login shell.</p>
+      </div>
+
+      <div class="term">
+        <h4>File <code>.so</code></h4>
+        <p>Shared Object — thư viện chia sẻ Linux (tương đương <code>.dll</code> Windows). PAM module ở <code>/lib/x86_64-linux-gnu/security/</code> hoặc <code>/usr/lib64/security/</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="debug">
+    <h2>5. Debug &amp; Troubleshoot</h2>
+    <pre><code>ssh -v user@host              # Verbose SSH client
+bash -x -l                    # Trace login shell startup
+strace -f -e openat ssh ...   # Trace mọi file bị mở
+journalctl -u ssh             # Log sshd
+tail -f /var/log/auth.log     # Debian/Ubuntu
+tail -f /var/log/secure       # RHEL/CentOS</code></pre>
+
+    <div class="callout">
+      <strong>Tips:</strong> Nếu SSH login thành công nhưng biến môi trường không đúng, kiểm tra thứ tự file được đọc bằng <code>bash -x -l</code>. Nếu bị chặn login, xem <code>/etc/nologin</code> và <code>/var/log/auth.log</code>.
+    </div>
+  </section>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default',
+    themeVariables: { fontFamily: 'inherit' },
+    flowchart: { curve: 'basis', padding: 20 }
+  });
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    document.getElementById('theme-icon').textContent = next === 'dark' ? '☀️' : '🌙';
+    localStorage.setItem('theme', next);
+    // Re-render Mermaid with new theme
+    document.querySelectorAll('.mermaid').forEach((el, i) => {
+      const src = el.getAttribute('data-src') || el.textContent;
+      el.setAttribute('data-src', src);
+      el.removeAttribute('data-processed');
+      el.innerHTML = src;
+    });
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: next === 'dark' ? 'dark' : 'default',
+      themeVariables: { fontFamily: 'inherit' },
+      flowchart: { curve: 'basis', padding: 20 }
+    });
+    mermaid.run();
+  }
+
+  // Load saved theme
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    document.getElementById('theme-icon').textContent = saved === 'dark' ? '☀️' : '🌙';
+  }
+</script>
+
+</body>
+</html>
